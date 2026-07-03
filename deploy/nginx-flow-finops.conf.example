@@ -1,0 +1,88 @@
+
+# flow (FinOps) — reverse proxy: Vite frontend + Nest API on one hostname
+#
+# Replace `server_name` if you use a different public host.
+# frontend/vite.config.ts → dev server port 5175
+# backend listens on 8081 (/graphql, /v1, /health, etc.)
+#
+# Install (Debian/Ubuntu):
+#   sudo cp deploy/nginx-flow-finops.conf.example /etc/nginx/sites-available/flow-finops
+#   sudo ln -sf /etc/nginx/sites-available/flow-finops /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Vite: frontend/vite.config.ts must include server.allowedHosts: true (or list finopsdemo.com).
+#
+# Same-origin API: point Apollo/REST at paths on this host (e.g. /graphql) via this proxy,
+# not http://localhost:8081, or browsers will call the user's localhost.
+
+upstream flow_vite {
+    server 127.0.0.1:5175;
+    keepalive 16;
+}
+
+upstream flow_api {
+    server 127.0.0.1:8081;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name finopsdemo.com;
+
+    client_max_body_size 25m;
+
+    # NestJS GraphQL + REST — must match paths your frontend calls when using same-origin.
+    location ^~ /graphql {
+        proxy_pass http://flow_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location /v1 {
+        proxy_pass http://flow_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location = /health {
+        proxy_pass http://flow_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://flow_vite;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+
+        proxy_connect_timeout 75s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    location /@vite/client {
+        proxy_pass http://flow_vite;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+}

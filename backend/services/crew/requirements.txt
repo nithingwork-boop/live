@@ -1,0 +1,16 @@
+# Core CrewAI and AI Framework
+crewai
+
+# Web Framework and Server
+fastapi
+uvicorn[standard]
+starlette
+
+# Data and Validation
+pydantic
+python-multipart
+
+# Additional
+python-dotenv
+requests
+
