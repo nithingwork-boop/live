@@ -4,6 +4,7 @@
     "target": "es2020",
     "moduleResolution": "node",
     "outDir": "dist",
+    "ignoreDeprecations": "5.0",
     "rootDir": "src",
     "esModuleInterop": true,
     "emitDecoratorMetadata": true,
